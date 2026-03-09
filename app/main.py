@@ -1,3 +1,7 @@
+import pandas as pd
+from fastapi.responses import FileResponse
+from datetime import datetime
+
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -110,3 +114,35 @@ def listar_ventas(db: Session = Depends(get_db)):
         })
 
     return resultado
+
+@app.get("/ventas/excel")
+def exportar_ventas_excel(db: Session = Depends(get_db)):
+    ventas = db.query(models.Venta).all()
+
+    datos = []
+    for v in ventas:
+        alumno = db.query(models.Alumno).filter(models.Alumno.id == v.alumno_id).first()
+        producto = db.query(models.Producto).filter(models.Producto.id == v.producto_id).first()
+
+        datos.append({
+            "id_venta": v.id,
+            "alumno_id": v.alumno_id,
+            "alumno": alumno.alumno if alumno else None,
+            "grupo": alumno.grupo if alumno else None,
+            "producto_id": v.producto_id,
+            "producto": producto.nombre if producto else None,
+            "cantidad": v.cantidad,
+            "total": v.total,
+            "fecha": v.fecha
+        })
+
+    df = pd.DataFrame(datos)
+
+    nombre_archivo = f"reporte_ventas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    df.to_excel(nombre_archivo, index=False)
+
+    return FileResponse(
+        path=nombre_archivo,
+        filename=nombre_archivo,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
