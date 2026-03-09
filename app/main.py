@@ -73,6 +73,24 @@ def listar_productos(db: Session = Depends(get_db)):
 
     return resultado
 
+@app.get("/productos/buscar")
+def buscar_productos(nombre: str, db: Session = Depends(get_db)):
+    productos = (
+        db.query(models.Producto)
+        .filter(models.Producto.nombre.ilike(f"%{nombre}%"))
+        .all()
+    )
+
+    resultado = []
+    for p in productos:
+        resultado.append({
+            "id": p.id,
+            "nombre": p.nombre,
+            "precio": p.precio
+        })
+
+    return resultado
+
 
 @app.post("/ventas")
 def crear_venta(venta: schemas.VentaCreate, db: Session = Depends(get_db)):
