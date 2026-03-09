@@ -6,3 +6,4 @@ cafeteria.db
 .DS_Store
 *.xlsx
 ~$*.xlsx
+reporte_ventas_*.xlsx
