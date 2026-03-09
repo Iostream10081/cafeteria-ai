@@ -2,6 +2,6 @@ from pydantic import BaseModel
 
 
 class VentaCreate(BaseModel):
-    producto: str
+    alumno_id: int
+    producto_id: int
     cantidad: int
-    precio_unitario: float
