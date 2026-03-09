@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+venv/
+cafeteria.db
+.DS_Store
