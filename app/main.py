@@ -40,6 +40,24 @@ def listar_alumnos(db: Session = Depends(get_db)):
 
     return resultado
 
+@app.get("/alumnos/buscar")
+def buscar_alumnos(nombre: str, db: Session = Depends(get_db)):
+    alumnos = (
+        db.query(models.Alumno)
+        .filter(models.Alumno.alumno.ilike(f"%{nombre}%"))
+        .all()
+    )
+
+    resultado = []
+    for a in alumnos:
+        resultado.append({
+            "id": a.id,
+            "alumno": a.alumno,
+            "grupo": a.grupo
+        })
+
+    return resultado
+
 
 @app.get("/productos")
 def listar_productos(db: Session = Depends(get_db)):
