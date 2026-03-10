@@ -7,3 +7,4 @@ cafeteria.db
 *.xlsx
 ~$*.xlsx
 reporte_ventas_*.xlsx
+estado_cuenta_*.xlsx
