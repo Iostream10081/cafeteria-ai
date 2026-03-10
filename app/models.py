@@ -29,3 +29,13 @@ class Venta(Base):
     cantidad = Column(Integer, nullable=False)
     total = Column(Float, nullable=False)
     fecha = Column(DateTime, default=datetime.utcnow)
+
+
+class Abono(Base):
+    __tablename__ = "abonos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    alumno_id = Column(Integer, ForeignKey("alumnos.id"), nullable=False)
+    monto = Column(Float, nullable=False)
+    concepto = Column(String, nullable=True)
+    fecha = Column(DateTime, default=datetime.utcnow)
