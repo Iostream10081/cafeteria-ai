@@ -1,14 +1,33 @@
 import requests
 import streamlit as st
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+USERNAME = os.getenv("STREAMLIT_USERNAME")
+PASSWORD = os.getenv("STREAMLIT_PASSWORD")
 
 API_URL = "http://127.0.0.1:8000"
+
+def login():
+    st.title("Login Colegio Tesla")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if username == USERNAME and password == PASSWORD:
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Invalid credentials")
 
 def get_students():
     resp = requests.get(f"{API_URL}/alumnos")
     if resp.status_code == 200:
         return resp.json()
     return []
-
 
 def get_products():
     resp = requests.get(f"{API_URL}/productos")
@@ -18,6 +37,12 @@ def get_products():
 
 st.set_page_config(page_title="Cafeteria Admin", layout="wide")
 
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    login()
+    st.stop()
 st.title("Cafetería Tesla")
 
 menu = st.sidebar.selectbox(
@@ -30,6 +55,10 @@ menu = st.sidebar.selectbox(
         "Download Excel Report"
     ]
 )
+
+if st.sidebar.button("Logout"):
+    st.session_state["authenticated"] = False
+    st.rerun()
 
 # ---------------------------------------------------
 # Register Sale
