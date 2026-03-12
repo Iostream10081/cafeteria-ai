@@ -1,4 +1,6 @@
 import pandas as pd
+import os
+from dotenv import load_dotenv
 from fastapi.responses import FileResponse
 from datetime import datetime
 
@@ -12,6 +14,9 @@ app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
 
+load_dotenv()
+REPORTS_DIR = os.getenv("REPORTS_DIR", "reports")
+os.makedirs(REPORTS_DIR, exist_ok=True)
 
 def get_db():
     db = SessionLocal()
@@ -338,14 +343,15 @@ def exportar_estado_cuenta_excel(db: Session = Depends(get_db)):
     # Crear archivo Excel
     # -----------------------------
     nombre_archivo = f"estado_cuenta_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    ruta_archivo = os.path.join(REPORTS_DIR, nombre_archivo)
 
-    with pd.ExcelWriter(nombre_archivo, engine="openpyxl") as writer:
+    with pd.ExcelWriter(ruta_archivo, engine="openpyxl") as writer:
         df_estado.to_excel(writer, sheet_name="Estado de cuenta", index=False)
         df_ventas.to_excel(writer, sheet_name="Ventas", index=False)
         df_abonos.to_excel(writer, sheet_name="Abonos", index=False)
 
     return FileResponse(
-        path=nombre_archivo,
-        filename=nombre_archivo,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    path=ruta_archivo,
+    filename=nombre_archivo,
+    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)

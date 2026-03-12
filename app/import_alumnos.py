@@ -1,8 +1,13 @@
+import os
 import pandas as pd
 
+from dotenv import load_dotenv
 from app.database import SessionLocal
 from app.models import Alumno
 
+load_dotenv()
+
+DATA_DIR = os.getenv("DATA_DIR", "data")
 
 def importar_alumnos_desde_excel(ruta_excel: str):
     df = pd.read_excel(ruta_excel)
@@ -48,5 +53,5 @@ def importar_alumnos_desde_excel(ruta_excel: str):
 
 
 if __name__ == "__main__":
-    ruta = "alumnos.xlsx"
+    ruta = os.path.join(DATA_DIR, "alumnos.xlsx")
     importar_alumnos_desde_excel(ruta)

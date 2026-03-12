@@ -1,10 +1,26 @@
+# Python cache
 __pycache__/
 *.pyc
-.env
+
+# Virtual environment
 venv/
-cafeteria.db
-.DS_Store
+
+# Environment variables
+.env
+
+# Database
+*.db
+
+# Generated reports
+reports/
+
+# Generated data
+data/*.xlsx
+
+# Excel exports
 *.xlsx
 ~$*.xlsx
-reporte_ventas_*.xlsx
-estado_cuenta_*.xlsx
+
+# OS files
+.DS_Store
+Thumbs.db

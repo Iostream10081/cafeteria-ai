@@ -1,14 +1,14 @@
+import os
 import requests
 import streamlit as st
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 USERNAME = os.getenv("STREAMLIT_USERNAME")
 PASSWORD = os.getenv("STREAMLIT_PASSWORD")
 
-API_URL = "http://127.0.0.1:8000"
 
 def login():
     st.title("Login Colegio Tesla")
