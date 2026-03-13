@@ -1,12 +1,12 @@
 import pandas as pd
 import os
+import tempfile
+import shutil
 from dotenv import load_dotenv
 from fastapi.responses import FileResponse
 from datetime import datetime
-
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-
 from app.database import Base, engine, SessionLocal
 from app import models, schemas
 from app.seed import seed_products
@@ -36,6 +36,20 @@ def startup_event():
 @app.get("/")
 def read_root():
     return {"status": "cafeteria-ai running"}
+
+@app.post("/alumnos/importar")
+def importar_alumnos(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    try:
+        from app.import_alumnos import importar_alumnos_desde_excel
+        importar_alumnos_desde_excel(tmp_path)
+        return {"mensaje": "Alumnos importados correctamente"}
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 
 @app.get("/alumnos")
