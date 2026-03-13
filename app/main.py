@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import Base, engine, SessionLocal
 from app import models, schemas
+from app.seed import seed_products
 
 app = FastAPI()
 
@@ -24,6 +25,12 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@app.on_event("startup")
+def startup_event():
+    Base.metadata.create_all(bind=engine)
+    seed_products()
 
 
 @app.get("/")

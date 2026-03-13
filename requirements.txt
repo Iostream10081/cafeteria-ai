@@ -7,3 +7,4 @@ openpyxl
 python-dotenv
 streamlit
 requests
+psycopg[binary]

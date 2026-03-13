@@ -1,20 +1,29 @@
 from app.database import SessionLocal
 from app.models import Producto
 
-db = SessionLocal()
 
-productos = [
-    {"nombre": "D1", "precio": 45},
-    {"nombre": "D2", "precio": 50},
-    {"nombre": "C1", "precio": 50},
-    {"nombre": "C2", "precio": 55},
-    {"nombre": "A", "precio": 10},
-]
+def seed_products():
+    db = SessionLocal()
 
-for p in productos:
-    producto = Producto(nombre=p["nombre"], precio=p["precio"])
-    db.add(producto)
+    productos = [
+        {"nombre": "D1", "precio": 45},
+        {"nombre": "D2", "precio": 50},
+        {"nombre": "C1", "precio": 50},
+        {"nombre": "C2", "precio": 55},
+        {"nombre": "A", "precio": 10},
+    ]
 
-db.commit()
+    try:
+        for p in productos:
+            existente = db.query(Producto).filter(Producto.nombre == p["nombre"]).first()
+            if not existente:
+                db.add(Producto(nombre=p["nombre"], precio=p["precio"]))
 
-print("Productos cargados correctamente")
+        db.commit()
+        print("Productos cargados correctamente")
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    seed_products()
