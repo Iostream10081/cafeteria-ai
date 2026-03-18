@@ -9,268 +9,383 @@ API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 USERNAME = os.getenv("STREAMLIT_USERNAME")
 PASSWORD = os.getenv("STREAMLIT_PASSWORD")
 
+st.set_page_config(page_title="Cafetería Tesla", layout="wide")
 
-def login():
-    st.title("Login Colegio Tesla")
+# ---------------------------------------------------
+# Estado de sesión
+# ---------------------------------------------------
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+if "venta_pendiente" not in st.session_state:
+    st.session_state.venta_pendiente = None
 
-    if st.button("Login"):
-        if username == USERNAME and password == PASSWORD:
-            st.session_state["authenticated"] = True
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
+if "abono_pendiente" not in st.session_state:
+    st.session_state.abono_pendiente = None
+
+
+# ---------------------------------------------------
+# Funciones auxiliares
+# ---------------------------------------------------
+def api_get(endpoint: str, params: dict | None = None):
+    return requests.get(f"{API_URL}{endpoint}", params=params, timeout=30)
+
+
+def api_post(endpoint: str, payload: dict):
+    return requests.post(f"{API_URL}{endpoint}", json=payload, timeout=30)
+
 
 def get_students():
-    resp = requests.get(f"{API_URL}/alumnos")
+    resp = api_get("/alumnos")
     if resp.status_code == 200:
         return resp.json()
     return []
+
 
 def get_products():
-    resp = requests.get(f"{API_URL}/productos")
+    resp = api_get("/productos")
     if resp.status_code == 200:
         return resp.json()
     return []
 
-st.set_page_config(page_title="Cafeteria Admin", layout="wide")
 
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+def login():
+    st.title("Inicio de sesión - Colegio Tesla")
 
-if not st.session_state["authenticated"]:
-    login()
-    st.stop()
-st.title("Cafetería Tesla")
+    username = st.text_input("Usuario")
+    password = st.text_input("Contraseña", type="password")
 
-menu = st.sidebar.selectbox(
-    "Select an option",
-    [
-        "Register Sale",
-        "Register Payment",
-        "Check Balance",
-        "Account Statement",
-        "Download Excel Report"
-    ]
-)
+    if st.button("Ingresar"):
+        if username == USERNAME and password == PASSWORD:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Usuario o contraseña incorrectos")
 
-if st.sidebar.button("Logout"):
-    st.session_state["authenticated"] = False
+
+def logout():
+    st.session_state.authenticated = False
+    st.session_state.venta_pendiente = None
+    st.session_state.abono_pendiente = None
     st.rerun()
 
-# ---------------------------------------------------
-# Register Sale
-# ---------------------------------------------------
-if menu == "Register Sale":
-    st.header("Register Sale")
 
+def mostrar_error_respuesta(resp):
+    try:
+        st.error(resp.json())
+    except Exception:
+        st.error("Ocurrió un error al comunicarse con el servidor.")
+
+
+def obtener_opciones_alumnos():
     students = get_students()
-    products = get_products()
-
-    student_options = {
-        f"{s['alumno']} - {s['grupo']} (ID: {s['id']})": s["id"]
+    return {
+        f"{s['alumno']} - {s['grupo']} (ID: {s['id']})": s
         for s in students
     }
 
-    product_options = {
-        f"{p['nombre']} - ${p['precio']}": p["id"]
+
+def obtener_opciones_productos():
+    products = get_products()
+    return {
+        f"{p['nombre']} - ${p['precio']}": p
         for p in products
     }
 
+
+# ---------------------------------------------------
+# Login
+# ---------------------------------------------------
+if not st.session_state.authenticated:
+    login()
+    st.stop()
+
+
+# ---------------------------------------------------
+# Encabezado principal
+# ---------------------------------------------------
+st.title("Panel de administración - Cafetería Tesla")
+
+menu = st.sidebar.selectbox(
+    "Selecciona una opción",
+    [
+        "Registrar venta",
+        "Registrar abono",
+        "Consultar saldo",
+        "Estado de cuenta",
+        "Descargar reporte Excel",
+    ],
+)
+
+if st.sidebar.button("Cerrar sesión"):
+    logout()
+
+
+# ---------------------------------------------------
+# Registrar venta
+# ---------------------------------------------------
+if menu == "Registrar venta":
+    st.header("Registrar venta")
+
+    student_options = obtener_opciones_alumnos()
+    product_options = obtener_opciones_productos()
+
     selected_students = st.multiselect(
-        "Select one or more students",
-        options=list(student_options.keys())
+        "Selecciona uno o varios alumnos",
+        options=list(student_options.keys()),
     )
 
     selected_product = st.selectbox(
-        "Select product",
-        options=list(product_options.keys()) if product_options else []
+        "Selecciona un producto",
+        options=list(product_options.keys()) if product_options else [],
     )
 
-    cantidad = st.number_input("Quantity", min_value=1, value=1)
+    cantidad = st.number_input("Cantidad", min_value=1, value=1, step=1)
 
-    if st.button("Register Sale"):
+    if st.button("Preparar venta"):
         if not selected_students:
-            st.error("Please select at least one student")
+            st.warning("Selecciona al menos un alumno.")
         elif not selected_product:
-            st.error("Please select a product")
+            st.warning("Selecciona un producto.")
         else:
-            producto_id = product_options[selected_product]
+            producto = product_options[selected_product]
+            total_individual = producto["precio"] * cantidad
 
-            success_count = 0
-            errors = []
+            st.session_state.venta_pendiente = {
+                "student_labels": selected_students,
+                "students_data": [student_options[label] for label in selected_students],
+                "producto_id": producto["id"],
+                "producto_nombre": producto["nombre"],
+                "precio_unitario": producto["precio"],
+                "cantidad": cantidad,
+                "total_individual": total_individual,
+                "total_general": total_individual * len(selected_students),
+            }
 
-            for student_label in selected_students:
-                alumno_id = student_options[student_label]
+    if st.session_state.venta_pendiente:
+        venta = st.session_state.venta_pendiente
 
-                venta_resp = requests.post(
-                    f"{API_URL}/ventas",
-                    json={
-                        "alumno_id": alumno_id,
-                        "producto_id": producto_id,
-                        "cantidad": cantidad
-                    }
+        st.subheader("Confirmación de venta")
+        st.write(f"**Producto:** {venta['producto_nombre']}")
+        st.write(f"**Precio unitario:** ${venta['precio_unitario']}")
+        st.write(f"**Cantidad por alumno:** {venta['cantidad']}")
+        st.write(f"**Total por alumno:** ${venta['total_individual']}")
+        st.write(f"**Alumnos seleccionados:** {len(venta['students_data'])}")
+        st.write(f"**Total general:** ${venta['total_general']}")
+
+        with st.expander("Ver alumnos seleccionados"):
+            for alumno in venta["students_data"]:
+                st.write(f"- {alumno['alumno']} ({alumno['grupo']})")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("Confirmar venta", key="confirmar_venta"):
+                success_count = 0
+                errors = []
+
+                for alumno in venta["students_data"]:
+                    resp = api_post(
+                        "/ventas",
+                        {
+                            "alumno_id": alumno["id"],
+                            "producto_id": venta["producto_id"],
+                            "cantidad": venta["cantidad"],
+                        },
+                    )
+
+                    if resp.status_code == 200:
+                        success_count += 1
+                    else:
+                        try:
+                            error_detail = resp.json()
+                        except Exception:
+                            error_detail = "Error desconocido"
+                        errors.append(
+                            {
+                                "alumno": alumno["alumno"],
+                                "grupo": alumno["grupo"],
+                                "error": error_detail,
+                            }
+                        )
+
+                if success_count > 0:
+                    st.success(f"Venta registrada correctamente para {success_count} alumno(s).")
+
+                if errors:
+                    st.error("Algunas ventas no pudieron registrarse.")
+                    st.json(errors)
+
+                st.session_state.venta_pendiente = None
+                st.rerun()
+
+        with col2:
+            if st.button("Cancelar venta", key="cancelar_venta"):
+                st.session_state.venta_pendiente = None
+                st.info("Venta cancelada.")
+                st.rerun()
+
+
+# ---------------------------------------------------
+# Registrar abono
+# ---------------------------------------------------
+elif menu == "Registrar abono":
+    st.header("Registrar abono")
+
+    student_options = obtener_opciones_alumnos()
+
+    selected_student = st.selectbox(
+        "Selecciona un alumno",
+        options=list(student_options.keys()) if student_options else [],
+    )
+
+    monto = st.number_input("Monto", min_value=0.0, value=0.0, step=1.0)
+    concepto = st.text_input("Concepto (opcional)")
+
+    if st.button("Preparar abono"):
+        if not selected_student:
+            st.warning("Selecciona un alumno.")
+        elif monto <= 0:
+            st.warning("El monto debe ser mayor a 0.")
+        else:
+            alumno = student_options[selected_student]
+
+            st.session_state.abono_pendiente = {
+                "alumno_id": alumno["id"],
+                "alumno_nombre": alumno["alumno"],
+                "grupo": alumno["grupo"],
+                "monto": monto,
+                "concepto": concepto if concepto else None,
+            }
+
+    if st.session_state.abono_pendiente:
+        abono = st.session_state.abono_pendiente
+
+        st.subheader("Confirmación de abono")
+        st.write(f"**Alumno:** {abono['alumno_nombre']}")
+        st.write(f"**Grupo:** {abono['grupo']}")
+        st.write(f"**Monto:** ${abono['monto']}")
+        st.write(f"**Concepto:** {abono['concepto'] if abono['concepto'] else 'Sin concepto'}")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("Confirmar abono", key="confirmar_abono"):
+                resp = api_post(
+                    "/abonos",
+                    {
+                        "alumno_id": abono["alumno_id"],
+                        "monto": abono["monto"],
+                        "concepto": abono["concepto"],
+                    },
                 )
 
-                if venta_resp.status_code == 200:
-                    success_count += 1
+                if resp.status_code == 200:
+                    st.success("Abono registrado correctamente.")
+                    st.json(resp.json())
                 else:
-                    errors.append({
-                        "student": student_label,
-                        "error": venta_resp.json()
-                    })
+                    mostrar_error_respuesta(resp)
 
-            if success_count > 0:
-                st.success(f"Sale registered for {success_count} student(s)")
+                st.session_state.abono_pendiente = None
+                st.rerun()
 
-            if errors:
-                st.error("Some sales could not be registered")
-                st.json(errors)
+        with col2:
+            if st.button("Cancelar abono", key="cancelar_abono"):
+                st.session_state.abono_pendiente = None
+                st.info("Abono cancelado.")
+                st.rerun()
+
 
 # ---------------------------------------------------
-# Register Payment
+# Consultar saldo
 # ---------------------------------------------------
-elif menu == "Register Payment":
-    st.header("Register Payment")
+elif menu == "Consultar saldo":
+    st.header("Consultar saldo")
 
-    students = get_students()
-
-    student_options = {
-        f"{s['alumno']} - {s['grupo']} (ID: {s['id']})": s["id"]
-        for s in students
-    }
+    student_options = obtener_opciones_alumnos()
 
     selected_student = st.selectbox(
-        "Select student",
-        options=list(student_options.keys()) if student_options else []
+        "Selecciona un alumno",
+        options=list(student_options.keys()) if student_options else [],
     )
 
-    monto = st.number_input("Amount", min_value=0.0, value=0.0, step=1.0)
-    concepto = st.text_input("Concept (optional)")
-
-    if st.button("Register Payment"):
+    if st.button("Consultar saldo"):
         if not selected_student:
-            st.error("Please select a student")
+            st.warning("Selecciona un alumno.")
         else:
-            alumno_id = student_options[selected_student]
+            alumno_id = student_options[selected_student]["id"]
+            resp = api_get(f"/alumnos/{alumno_id}/saldo")
 
-            abono_resp = requests.post(
-                f"{API_URL}/abonos",
-                json={
-                    "alumno_id": alumno_id,
-                    "monto": monto,
-                    "concepto": concepto if concepto else None
-                }
-            )
-
-            if abono_resp.status_code == 200:
-                st.success("Payment registered successfully")
-                st.json(abono_resp.json())
+            if resp.status_code == 200:
+                saldo = resp.json()
+                st.success("Saldo consultado correctamente.")
+                st.write(f"**Alumno:** {saldo['alumno']}")
+                st.write(f"**Grupo:** {saldo['grupo']}")
+                st.write(f"**Total de ventas:** ${saldo['total_ventas']}")
+                st.write(f"**Total de abonos:** ${saldo['total_abonos']}")
+                st.write(f"**Saldo pendiente:** ${saldo['saldo_pendiente']}")
             else:
-                st.error("Error registering payment")
-                st.json(abono_resp.json())
+                mostrar_error_respuesta(resp)
+
 
 # ---------------------------------------------------
-# Check Balance
+# Estado de cuenta
 # ---------------------------------------------------
-elif menu == "Check Balance":
-    st.header("Check Balance")
+elif menu == "Estado de cuenta":
+    st.header("Estado de cuenta")
 
-    students = get_students()
-
-    student_options = {
-        f"{s['alumno']} - {s['grupo']} (ID: {s['id']})": s["id"]
-        for s in students
-    }
+    student_options = obtener_opciones_alumnos()
 
     selected_student = st.selectbox(
-        "Select student",
-        options=list(student_options.keys()) if student_options else []
+        "Selecciona un alumno",
+        options=list(student_options.keys()) if student_options else [],
     )
 
-    if st.button("Check Balance"):
+    if st.button("Consultar estado de cuenta"):
         if not selected_student:
-            st.error("Please select a student")
+            st.warning("Selecciona un alumno.")
         else:
-            alumno_id = student_options[selected_student]
-            saldo_resp = requests.get(f"{API_URL}/alumnos/{alumno_id}/saldo")
+            alumno_id = student_options[selected_student]["id"]
+            resp = api_get(f"/alumnos/{alumno_id}/estado_cuenta")
 
-            if saldo_resp.status_code == 200:
-                saldo = saldo_resp.json()
-                st.success("Balance found")
-                st.write(f"Student: {saldo['alumno']}")
-                st.write(f"Group: {saldo['grupo']}")
-                st.write(f"Total Sales: {saldo['total_ventas']}")
-                st.write(f"Total Payments: {saldo['total_abonos']}")
-                st.write(f"Pending Balance: {saldo['saldo_pendiente']}")
+            if resp.status_code == 200:
+                estado = resp.json()
+
+                st.success("Estado de cuenta cargado correctamente.")
+
+                st.subheader("Información del alumno")
+                st.write(f"**Alumno:** {estado['alumno']}")
+                st.write(f"**Grupo:** {estado['grupo']}")
+                st.write(f"**Total de ventas:** ${estado['total_ventas']}")
+                st.write(f"**Total de abonos:** ${estado['total_abonos']}")
+                st.write(f"**Saldo pendiente:** ${estado['saldo_pendiente']}")
+
+                st.subheader("Ventas")
+                st.dataframe(estado["ventas"], use_container_width=True)
+
+                st.subheader("Abonos")
+                st.dataframe(estado["abonos"], use_container_width=True)
             else:
-                st.error("Error getting balance")
-                st.json(saldo_resp.json())
+                mostrar_error_respuesta(resp)
+
 
 # ---------------------------------------------------
-# Account Statement
+# Descargar reporte Excel
 # ---------------------------------------------------
-elif menu == "Account Statement":
-    st.header("Account Statement")
+elif menu == "Descargar reporte Excel":
+    st.header("Descargar reporte Excel")
 
-    students = get_students()
-
-    student_options = {
-        f"{s['alumno']} - {s['grupo']} (ID: {s['id']})": s["id"]
-        for s in students
-    }
-
-    selected_student = st.selectbox(
-        "Select student",
-        options=list(student_options.keys()) if student_options else []
-    )
-
-    if st.button("Get Account Statement"):
-        if not selected_student:
-            st.error("Please select a student")
-        else:
-            alumno_id = student_options[selected_student]
-            estado_resp = requests.get(f"{API_URL}/alumnos/{alumno_id}/estado_cuenta")
-
-            if estado_resp.status_code == 200:
-                estado = estado_resp.json()
-                st.success("Account statement loaded")
-
-                st.subheader("Student Information")
-                st.write(f"Student: {estado['alumno']}")
-                st.write(f"Group: {estado['grupo']}")
-                st.write(f"Total Sales: {estado['total_ventas']}")
-                st.write(f"Total Payments: {estado['total_abonos']}")
-                st.write(f"Pending Balance: {estado['saldo_pendiente']}")
-
-                st.subheader("Sales")
-                st.dataframe(estado["ventas"])
-
-                st.subheader("Payments")
-                st.dataframe(estado["abonos"])
-            else:
-                st.error("Error getting account statement")
-                st.json(estado_resp.json())
-
-# ---------------------------------------------------
-# Download Excel Report
-# ---------------------------------------------------
-elif menu == "Download Excel Report":
-    st.header("Download Excel Report")
-
-    if st.button("Generate and Download Report"):
-        resp = requests.get(f"{API_URL}/estado-cuenta/excel")
+    if st.button("Generar y descargar reporte"):
+        resp = api_get("/estado-cuenta/excel")
 
         if resp.status_code == 200:
-            st.success("Report generated successfully")
+            st.success("Reporte generado correctamente.")
 
             st.download_button(
-                label="Download Excel Report",
+                label="Descargar Excel",
                 data=resp.content,
                 file_name="estado_cuenta.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            st.error("Error generating report")
+            mostrar_error_respuesta(resp)
