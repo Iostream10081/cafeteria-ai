@@ -113,6 +113,7 @@ menu = st.sidebar.selectbox(
         "Registrar abono",
         "Consultar saldo",
         "Estado de cuenta",
+        "Deudores",
         "Descargar reporte Excel",
     ],
 )
@@ -367,6 +368,37 @@ elif menu == "Estado de cuenta":
                 st.dataframe(estado["abonos"], use_container_width=True)
             else:
                 mostrar_error_respuesta(resp)
+
+
+# ---------------------------------------------------
+# Deudores
+# ---------------------------------------------------
+elif menu == "Deudores":
+    st.header("Lista de deudores")
+
+    resp = api_get("/deudores")
+
+    if resp.status_code == 200:
+        deudores = resp.json()
+
+        if len(deudores) == 0:
+            st.success("No hay deudores registrados.")
+        else:
+            tabla = [
+                {
+                    "Alumno": d["alumno"],
+                    "Grupo": d["grupo"],
+                    "Total ventas": d["total_ventas"],
+                    "Total abonos": d["total_abonos"],
+                    "Saldo pendiente": d["saldo_pendiente"],
+                }
+                for d in deudores
+            ]
+
+            st.write(f"**Total de alumnos con adeudo:** {len(deudores)}")
+            st.dataframe(tabla, use_container_width=True)
+    else:
+        mostrar_error_respuesta(resp)
 
 
 # ---------------------------------------------------

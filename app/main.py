@@ -230,6 +230,34 @@ def consultar_saldo(alumno_id: int, db: Session = Depends(get_db)):
         "saldo_pendiente": saldo_pendiente
     }
 
+@app.get("/deudores")
+def listar_deudores(db: Session = Depends(get_db)):
+    alumnos = db.query(models.Alumno).all()
+
+    resultado = []
+
+    for alumno in alumnos:
+        ventas = db.query(models.Venta).filter(models.Venta.alumno_id == alumno.id).all()
+        abonos = db.query(models.Abono).filter(models.Abono.alumno_id == alumno.id).all()
+
+        total_ventas = sum(v.total for v in ventas)
+        total_abonos = sum(a.monto for a in abonos)
+        saldo_pendiente = total_ventas - total_abonos
+
+        if saldo_pendiente > 0:
+            resultado.append({
+                "alumno_id": alumno.id,
+                "alumno": alumno.alumno,
+                "grupo": alumno.grupo,
+                "total_ventas": total_ventas,
+                "total_abonos": total_abonos,
+                "saldo_pendiente": saldo_pendiente
+            })
+
+    resultado.sort(key=lambda x: x["saldo_pendiente"], reverse=True)
+
+    return resultado
+
 @app.get("/alumnos/{alumno_id}/estado_cuenta")
 def consultar_estado_cuenta(alumno_id: int, db: Session = Depends(get_db)):
     alumno = db.query(models.Alumno).filter(models.Alumno.id == alumno_id).first()
