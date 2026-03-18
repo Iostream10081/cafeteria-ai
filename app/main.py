@@ -304,6 +304,22 @@ def consultar_estado_cuenta(alumno_id: int, db: Session = Depends(get_db)):
         "saldo_pendiente": saldo_pendiente
     }
 
+@app.post("/reiniciar-ciclo")
+def reiniciar_ciclo(payload: dict, db: Session = Depends(get_db)):
+    reset_key = payload.get("reset_key")
+    expected_key = os.getenv("RESET_KEY")
+
+    if not expected_key or reset_key != expected_key:
+        raise HTTPException(status_code=403, detail="Clave de reinicio inválida")
+
+    db.query(models.Venta).delete()
+    db.query(models.Abono).delete()
+    db.commit()
+
+    return {
+        "mensaje": "Ciclo reiniciado correctamente. Ventas y abonos eliminados."
+    }
+
 @app.get("/estado-cuenta/excel")
 def exportar_estado_cuenta_excel(db: Session = Depends(get_db)):
     alumnos = db.query(models.Alumno).all()

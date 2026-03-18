@@ -8,6 +8,7 @@ load_dotenv()
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 USERNAME = os.getenv("STREAMLIT_USERNAME")
 PASSWORD = os.getenv("STREAMLIT_PASSWORD")
+RESET_KEY = os.getenv("RESET_KEY")
 
 st.set_page_config(page_title="Cafetería Tesla", layout="wide")
 
@@ -114,6 +115,7 @@ menu = st.sidebar.selectbox(
         "Consultar saldo",
         "Estado de cuenta",
         "Deudores",
+        "Reiniciar ciclo escolar",
         "Descargar reporte Excel",
     ],
 )
@@ -399,6 +401,31 @@ elif menu == "Deudores":
             st.dataframe(tabla, use_container_width=True)
     else:
         mostrar_error_respuesta(resp)
+
+
+# ---------------------------------------------------
+# Reiniciar ciclo escolar
+# ---------------------------------------------------
+elif menu == "Reiniciar ciclo escolar":
+    st.header("Reiniciar ciclo escolar")
+    st.error("Esta acción eliminará todas las ventas y todos los abonos registrados.")
+    st.warning("Los alumnos y los productos se conservarán.")
+
+    confirmacion = st.text_input(
+        "Escribe REINICIAR para habilitar esta acción"
+    )
+
+    if st.button("Reiniciar ciclo"):
+        if confirmacion != "REINICIAR":
+            st.warning("Debes escribir exactamente REINICIAR para continuar.")
+        else:
+            resp = api_post("/reiniciar-ciclo", {"reset_key": RESET_KEY})
+
+            if resp.status_code == 200:
+                st.success("Ciclo escolar reiniciado correctamente.")
+                st.json(resp.json())
+            else:
+                mostrar_error_respuesta(resp)
 
 
 # ---------------------------------------------------
